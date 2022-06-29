@@ -1,0 +1,35 @@
+﻿version: '3.4'
+
+services:
+  itsummit:
+    image: "itsummit-webserver"
+    container_name: "itsummit-webserver"
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    networks:
+      - itsummit2022
+    depends_on:
+      - database
+  
+  database:
+    image: mysql
+    container_name: "mysql-database"
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: my_simple_password
+    volumes:
+      - database-volume:/var/lib/mysql
+      - ./mysql-entrypoint.sql:/docker-entrypoint-initdb.d/entry.sql
+    ports:
+      - "3306:3306"
+    networks:
+      - itsummit2022
+  
+volumes:
+  database-volume:
+    
+networks:
+  itsummit2022:

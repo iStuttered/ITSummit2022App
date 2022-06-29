@@ -1,0 +1,142 @@
+﻿@page "/SQLInjection"
+@model ITSummit2022App.Pages.SQLInjection
+
+@{
+    Layout = "_Layout";
+}
+
+<h3 xmlns="http://www.w3.org/1999/html">SQL Injection</h3>
+<div class="tag">Introduction</div>
+<p>
+    SQL Injection is a common software vulnerability in which text inside a form field exposes a database to arbitrary query execution. <br/>
+    <br/>
+    Take this form below as an example which simply queries the database for employees.
+</p>
+<form>
+    <label for="example_search">
+        <span>Employee Search:</span>
+        <input type="text" name="example_search" placeholder="..." value="Nate Jennings" disabled/>
+        <button type="submit" disabled>Submit</button>
+    </label>
+</form>
+<table class="results">
+    <thead>
+    <th>Name</th>
+    <th>Interests</th>
+    <th>Star Sign</th>
+    <tbody>
+    <tr>
+        <td>Nate Jennings</td>
+        <td>None</td>
+        <td>Aries</td>
+    </tr>
+    </tbody>
+</table>
+<p>Where the theoretical database query may look like below.</p>
+<span class="query">SELECT * FROM employees WHERE name = '<span class="input">Nate Jennings</span>';</span>
+<p>When a search field is not properly handled by a developer, an attacker can craft a 'search' which runs additional database commands prepared by the attacker instead. This demonstration will explore the steps needed to accomplish a proper injection.</p>
+<div class="tag">Attacker Step 1</div>
+<p>The first step to determine if an input field is vulnerable is to try and break the underlying query with the hopes a 'server error' occurs. The easiest character is a quote mark (') or double-quote mark (").</p>
+<form>
+    <label for="example_search">
+        <span>Employee Search:</span>
+        <input type="text" name="example_search" placeholder="..." value="'" disabled/>
+        <button type="submit" disabled>Submit</button>
+    </label>
+</form>
+<p>After hitting submit, we'd be looking for a "server error" of some kind. If that DOES happen, it means we start injecting new commands to see the scope of the vulnerability.</p>
+<div class="tag">Attacker Step 2</div>
+<p>Once we know the input field is vulnerable, we need to find a way to make the 'intended' query work while also adding our own. Eventually we will use our own query to explore the database. If we believe the underlying query has our input wrapped in quote marks like this '<span class="input">Input</span>' then maybe our first character should be a quote mark, to close the first one and make a matching set. Then maybe we want a UNION which stacks two queries on top of each other, and grab rows from the information schema. After that, we would need a '#' at the end which sets the entire rest of the underlying query to a comment. It should look like this: '<span class="input">' UNION select TABLE_SCHEMA, TABLE_NAME, 1 from information_schema.tables where table_type = \'BASE TABLE\'; #</span>'</p>
+<form>
+    <label for="example_search">
+        <span>Employee Search:</span>
+        <input type="text" name="example_search" placeholder="..." value="' UNION select TABLE_SCHEMA, TABLE_NAME, 1 from information_schema.tables; #" disabled/>
+        <button type="submit" disabled>Submit</button>
+    </label>
+</form>
+<p>The resulting query should return with two tables, the 'users' table and the 'employees' table. Now that we have table names, the information schema ALSO has data for the columns in a table once we know the name. It'll look like this, paired with the query we just built. '<span class="input">' UNION select table_name, column_name from information_schema.columns where table_name = 'users'; #</span>'</p>
+<form>
+    <label for="example_search">
+        <span>Employee Search:</span>
+        <input type="text" name="example_search" placeholder="..." value="' UNION select table_name, column_name, 1 from information_schema.columns; #" disabled/>
+        <button type="submit" disabled>Submit</button>
+    </label>
+</form>
+<p>The resulting query should return a list of columns in the 'users' table, of which we may care about fullname, password, and email address.</p>
+<div class="tag">Attacker Step 3</div>
+<p>Now that we know what tables are available and what columns are in each table we can get to the meat of it on the users table to see if our attack will bear fruit. In this case we want the fullname, email, and password columns from the users table.</p>
+<form>
+    <label for="example_search">
+        <span>Employee Search:</span>
+        <input type="text" name="example_search" placeholder="..." value="' UNION select fullname, email, password from users; #" disabled/>
+        <button type="submit" disabled>Submit</button>
+    </label>
+</form>
+<p>By this point we will have successfully extracted data from an unsuspecting victim! Feel free to try out some other commands yourself.</p>
+<div class="tag" id="try-it-yourself">Try it yourself</div>
+<form action="SQLInjection#try-it-yourself" method="get">
+    <label for="query">
+        <span>Employee Search:</span>
+        @if (Request.Query.ContainsKey("query"))
+        {
+            <input type="text" id="query" name="query" placeholder="..." value="@Request.Query["query"]" oninput="update_query()"/>
+        }
+        else
+        {
+            <input type="text" id="query" name="query" placeholder="..." value="Nate Jennings" oninput="update_query()"/>
+        }
+        <button type="submit">Submit</button>
+    </label>
+</form>
+<table class="results">
+    <thead>
+    <tr>
+        <th>Name</th>
+        <th>Interests</th>
+        <th>Star Sign</th>
+    </tr>
+    </thead>
+    <tbody>
+    @if (Model.QueryResults.Count > 0)
+    {
+        @foreach (Dictionary<string, object> row in Model.QueryResults)
+        {
+            <tr>
+                @foreach (KeyValuePair<string, object> pair in row)
+                {
+                    <td>@pair.Value</td>
+                }
+            </tr>
+        }
+    }
+    else
+    {
+        <tr>
+            <td>No Results</td>
+            <td></td>
+            <td></td>
+        </tr>
+    }
+    </tbody>
+</table>
+<p>Current Query:</p>
+<span class="query">SELECT * FROM employees WHERE name = '<span class="input" id="query_name">Nate Jennings</span>';</span>
+<div class="tag">For fun</div>
+<p>I have hidden something in the database. I've made your user read-only (no fun, I know) with the exception to one table. Find that table and write a message!</p>
+<div class="tag">How to fix</div>
+<img src="PreparedStatementExample.png" width="100%" alt="Prepared Sample Example"/>
+<p>
+    Like the above code written in C#, a query and its parameters are defined ahead of time. When the query is actually executed, the VALUES like user_id are carefully cleaned and placed inside the query as JUST TEXT. These are called PREPARED STATEMENTS, and how to use them varies by language and database library. The <a href="https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html">OWASP Cheat Sheet</a> on SQL Injection is a more comprehensive guide. <br/>
+    <br/>
+    Another suggestion is limiting the DATABASE USER's permissions where possible. An attacker just reading the contents of a database is pretty catastraphic, but disabling commands like DROP DATABASE which destructively deletes databases would be a safe choice.
+</p>
+
+@section Scripts
+{
+    <script>
+        function update_query() {
+            document.getElementById('query_name').innerText = document.getElementById('query').value;
+        }
+    
+    </script>
+}

@@ -1,0 +1,20 @@
+﻿<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>IT Summit - Home</title>
+    <link rel="stylesheet" href="main.css" />
+</head>
+<body>
+<h1>IT Summit 2022</h1>
+<div class="subtitle">Software Development Discussion<br/>
+    By Nate Jennings, NCIGF<br/><br/>
+    MySQL - 8.0.29-1debian10<br/>
+    ASP.NET - net6.0<br/></div>
+<a href="/"><img src="https://www.ncigf.org/wp-content/uploads/2021/04/cropped-NCIGFShieldLogo3.png" alt="Logo" width="250px" /></a>
+<div id="content">
+    @RenderBody()
+</div>
+@await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

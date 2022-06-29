@@ -1,0 +1,26 @@
+﻿@page
+@model ITSummit2022App.Pages.Profile
+
+@{
+    Layout = "_Layout";
+}
+
+<h3>Profile</h3>
+
+@if (Model.QueryResult.Count > 0)
+{
+    <form>
+    @foreach (KeyValuePair<string, object> pair in Model.QueryResult[0])
+    {
+        <label for="@pair.Key">
+            <span>@pair.Key:</span>
+            <input id="@pair.Key" name="@pair.Key" value="@pair.Value" type="text"/>
+        </label>
+    }
+    <button disabled>Save</button>
+    </form>
+}
+else
+{
+    <p>No user exists with that ID.</p>
+}
